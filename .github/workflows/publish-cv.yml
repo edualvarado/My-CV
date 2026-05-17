@@ -1,0 +1,37 @@
+name: Publish CV to latest release
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'examples/cv-eduardo-alvarado.pdf'
+      - '.github/workflows/publish-cv.yml'
+  workflow_dispatch: {}  # also allow manual trigger from the Actions tab
+
+permissions:
+  contents: write  # required to create / update releases
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Publish PDF to "latest" release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PDF_PATH: examples/cv-eduardo-alvarado.pdf
+        run: |
+          set -e
+          test -f "$PDF_PATH" || { echo "PDF not found at $PDF_PATH"; exit 1; }
+          if gh release view latest >/dev/null 2>&1; then
+            echo "Updating existing 'latest' release asset"
+            gh release upload latest "$PDF_PATH" --clobber
+          else
+            echo "Creating new 'latest' release"
+            gh release create latest "$PDF_PATH" \
+              --title "Latest CV" \
+              --notes "Always serves the latest compiled CV. Auto-updated on every push to master that changes $PDF_PATH." \
+              --latest
+          fi
