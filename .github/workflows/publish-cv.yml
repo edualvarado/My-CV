@@ -6,32 +6,51 @@ on:
     paths:
       - 'examples/cv-eduardo-alvarado.pdf'
       - '.github/workflows/publish-cv.yml'
-  workflow_dispatch: {}  # also allow manual trigger from the Actions tab
+  workflow_dispatch: {}
 
 permissions:
-  contents: write  # required to create / update releases
+  contents: write
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      # The repo has a symlink (examples/awesome-cv.cls) that breaks
+      # actions/checkout on Linux ("File name too long" when recreating
+      # the symlink). We only need the PDF — fetch it directly instead
+      # of cloning the whole tree.
+      - name: Fetch CV PDF
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+          PDF_NAME: cv-eduardo-alvarado.pdf
+          PDF_PATH_IN_REPO: examples/cv-eduardo-alvarado.pdf
+        run: |
+          set -e
+          echo "Fetching $REPO @ $SHA :: $PDF_PATH_IN_REPO"
+          curl -sSLf \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            "<https://raw.githubusercontent.com/$REPO/$SHA/$PDF_PATH_IN_REPO>" \
+            -o "$PDF_NAME"
+          ls -la "$PDF_NAME"
+          file "$PDF_NAME"
+          file "$PDF_NAME" | grep -q "PDF document" \
+            || { echo "ERROR: downloaded file is not a PDF — check the path"; head -c 200 "$PDF_NAME"; exit 1; }
 
       - name: Publish PDF to "latest" release
         env:
           GH_TOKEN: ${{ github.token }}
-          PDF_PATH: examples/cv-eduardo-alvarado.pdf
+          PDF_NAME: cv-eduardo-alvarado.pdf
         run: |
           set -e
-          test -f "$PDF_PATH" || { echo "PDF not found at $PDF_PATH"; exit 1; }
           if gh release view latest >/dev/null 2>&1; then
             echo "Updating existing 'latest' release asset"
-            gh release upload latest "$PDF_PATH" --clobber
+            gh release upload latest "$PDF_NAME" --clobber
           else
             echo "Creating new 'latest' release"
-            gh release create latest "$PDF_PATH" \
+            gh release create latest "$PDF_NAME" \
               --title "Latest CV" \
-              --notes "Always serves the latest compiled CV. Auto-updated on every push to master that changes $PDF_PATH." \
+              --notes "Always serves the latest CV. Auto-updated on every push to master that changes $PDF_NAME." \
               --latest
           fi
