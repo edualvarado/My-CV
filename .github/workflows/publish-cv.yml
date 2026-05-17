@@ -15,10 +15,6 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      # The repo has a symlink (examples/awesome-cv.cls) that breaks
-      # actions/checkout on Linux ("File name too long" when recreating
-      # the symlink). We only need the PDF — fetch it directly instead
-      # of cloning the whole tree.
       - name: Fetch CV PDF
         env:
           GH_TOKEN: ${{ github.token }}
@@ -29,14 +25,14 @@ jobs:
         run: |
           set -e
           echo "Fetching $REPO @ $SHA :: $PDF_PATH_IN_REPO"
-          curl -sSLf \
-            -H "Authorization: Bearer $GH_TOKEN" \
-            "<https://raw.githubusercontent.com/$REPO/$SHA/$PDF_PATH_IN_REPO>" \
-            -o "$PDF_NAME"
+          gh api \
+            -H "Accept: application/vnd.github.raw" \
+            "/repos/$REPO/contents/$PDF_PATH_IN_REPO?ref=$SHA" \
+            > "$PDF_NAME"
           ls -la "$PDF_NAME"
           file "$PDF_NAME"
           file "$PDF_NAME" | grep -q "PDF document" \
-            || { echo "ERROR: downloaded file is not a PDF — check the path"; head -c 200 "$PDF_NAME"; exit 1; }
+            || { echo "ERROR: not a PDF — first 200 bytes:"; head -c 200 "$PDF_NAME"; exit 1; }
 
       - name: Publish PDF to "latest" release
         env:
