@@ -5,6 +5,10 @@
             "tools": ["xelatex"]
         },
         {
+            "name": "xelatex -> biber -> xelatex",
+            "tools": ["xelatex", "biber", "xelatex"]
+        },
+        {
             "name": "latexmk",
             "tools": [
                 "latexmk"
